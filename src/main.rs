@@ -15,6 +15,8 @@ struct State {
     player: Player,
     // 经过多少帧之后，累计了多少时间
     frame_time: f32,
+    obstacle: Obstacle,
+    score: i32,
 }
 
 struct Player {
@@ -59,6 +61,8 @@ impl State {
             mode: GameMode::Menu,
             frame_time: 0.0,
             player: Player::new(5, 25),
+            obstacle: Obstacle::new(SCREEN_WIDTH, 0),
+            score: 0,
         }
     }
 
@@ -81,6 +85,8 @@ impl State {
         self.player = Player::new(5, 25);
         self.frame_time = 0.0;
         self.mode = GameMode::Playing;
+        self.obstacle = Obstacle::new(SCREEN_WIDTH, 0);
+        self.score = 0;
     }
 
     fn play(&mut self, ctx: &mut BTerm) {
@@ -99,15 +105,24 @@ impl State {
         self.player.render(ctx);
 
         ctx.print(0, 0, "press space to flap");
+        ctx.print(0, 1, &format!("Score:{}", self.score));
 
-        if self.player.y > SCREEN_HEIGHT {
+        self.obstacle.render(ctx, self.player.x);
+        if self.player.x > self.obstacle.x {
+            self.score += 1;
+            self.obstacle = Obstacle::new(self.player.x + SCREEN_WIDTH, self.score)
+        }
+
+        // 落地或者碰到障碍物
+        if self.player.y > SCREEN_HEIGHT || self.obstacle.hit_obstacle(&self.player) {
             self.mode = GameMode::End;
         }
     }
+
     fn dead(&mut self, ctx: &mut BTerm) {
-        // clear the screen
         ctx.cls();
         ctx.print_centered(5, "you are dead!");
+        ctx.print_centered(6, &format!("You earned {} points", self.score));
         ctx.print_centered(8, "(P) Play Game");
         ctx.print_centered(9, "(Q) Quit");
 
@@ -128,6 +143,45 @@ impl GameState for State {
             GameMode::Playing => self.play(ctx),
             GameMode::End => self.dead(ctx),
         }
+    }
+}
+
+struct Obstacle {
+    x: i32,
+    gap_y: i32,
+    size: i32,
+}
+
+impl Obstacle {
+    fn new(x: i32, score: i32) -> Self {
+        let mut random = RandomNumberGenerator::new();
+
+        Obstacle {
+            x,
+            gap_y: random.range(10, 40),
+            size: i32::max(2, 20 - score),
+        }
+    }
+
+    fn render(&mut self, ctx: &mut BTerm, player_x: i32) {
+        let screen_x = self.x - player_x;
+        let half_size = self.size / 2;
+
+        for y in 0..self.gap_y - half_size {
+            ctx.set(screen_x, y, RED, BLACK, to_cp437('|'));
+        }
+
+        for y in self.gap_y + half_size..SCREEN_HEIGHT {
+            ctx.set(screen_x, y, RED, BLACK, '|');
+        }
+    }
+
+    fn hit_obstacle(&self, player: &Player) -> bool {
+        let half_size = self.size / 2;
+        let does_x_match = player.x == self.x;
+        let player_above_gap = player.y < self.gap_y - half_size;
+        let player_below_gap = player.y > self.gap_y + half_size;
+        does_x_match && (player_above_gap || player_below_gap)
     }
 }
 
