@@ -1,15 +1,21 @@
 use bracket_lib::prelude::*;
 
+// 游戏菜单
 enum GameMode {
     Menu,
     Playing,
     End,
 }
 
+// 常量
+// 屏幕宽度
 const SCREEN_WIDTH: i32 = 80;
+// 屏幕高度
 const SCREEN_HEIGHT: i32 = 50;
-const FRAME_DURATION: f32 = 75.0;
+// todo 刷新时间？
+const FRAME_DURATION: f32 = 25.0;
 
+// 游戏状态
 struct State {
     mode: GameMode,
     player: Player,
@@ -19,6 +25,7 @@ struct State {
     score: i32,
 }
 
+// 玩家
 struct Player {
     x: i32,
     y: i32,
@@ -27,6 +34,7 @@ struct Player {
 }
 
 impl Player {
+    // 关联函数
     fn new(x: i32, y: i32) -> Self {
         Player {
             x: 0,
@@ -35,27 +43,32 @@ impl Player {
         }
     }
 
+    // 玩家操控的实体
     fn render(&mut self, ctx: &mut BTerm) {
         ctx.set(0, self.y, YELLOW, BLACK, to_cp437('@'));
     }
 
+    // 重力公式
     fn gravity_to_move(&mut self) {
-        if self.velocity < 2.0 {
+        if self.velocity < 1.0 {
             self.velocity += 0.2;
         }
         self.y += self.velocity as i32;
         self.x += 1;
+        // 超出屏幕最上方，重定位
         if self.y < 0 {
             self.y = 0
         }
     }
 
+    // 起飞操作
     fn flap(&mut self) {
         self.velocity = -2.0;
     }
 }
 
 impl State {
+    // 关联函数
     fn new() -> Self {
         State {
             mode: GameMode::Menu,
@@ -66,6 +79,7 @@ impl State {
         }
     }
 
+    // 主菜单
     fn main_menu(&mut self, ctx: &mut BTerm) {
         ctx.cls();
         ctx.print_centered(5, "Welcome to Flappy Dragon");
@@ -81,6 +95,7 @@ impl State {
         }
     }
 
+    // 重新开始游戏
     fn restart(&mut self) {
         self.player = Player::new(5, 25);
         self.frame_time = 0.0;
@@ -89,6 +104,7 @@ impl State {
         self.score = 0;
     }
 
+    // 开始游戏
     fn play(&mut self, ctx: &mut BTerm) {
         ctx.cls_bg(NAVY);
         self.frame_time += ctx.frame_time_ms;
@@ -119,6 +135,7 @@ impl State {
         }
     }
 
+    // 游戏结束
     fn dead(&mut self, ctx: &mut BTerm) {
         ctx.cls();
         ctx.print_centered(5, "you are dead!");
@@ -136,7 +153,9 @@ impl State {
     }
 }
 
+// 游戏状态
 impl GameState for State {
+    // 根据用户输入选择菜单
     fn tick(&mut self, ctx: &mut BTerm) {
         match self.mode {
             GameMode::Menu => self.main_menu(ctx),
@@ -146,6 +165,7 @@ impl GameState for State {
     }
 }
 
+// 障碍物
 struct Obstacle {
     x: i32,
     gap_y: i32,
@@ -153,6 +173,7 @@ struct Obstacle {
 }
 
 impl Obstacle {
+    // 关联函数
     fn new(x: i32, score: i32) -> Self {
         let mut random = RandomNumberGenerator::new();
 
@@ -163,6 +184,7 @@ impl Obstacle {
         }
     }
 
+    // 随机生成障碍物
     fn render(&mut self, ctx: &mut BTerm, player_x: i32) {
         let screen_x = self.x - player_x;
         let half_size = self.size / 2;
@@ -176,6 +198,7 @@ impl Obstacle {
         }
     }
 
+    // 碰到障碍物
     fn hit_obstacle(&self, player: &Player) -> bool {
         let half_size = self.size / 2;
         let does_x_match = player.x == self.x;
@@ -186,9 +209,11 @@ impl Obstacle {
 }
 
 fn main() -> BError {
+    // 实例化游戏页面
     let context = BTermBuilder::simple80x50()
         .with_title("flappy dragon")
         .build()?;
 
+    // 开始轮询
     main_loop(context, State::new())
 }
